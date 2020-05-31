@@ -9,6 +9,7 @@ from itertools import chain
 from operator import and_, itemgetter
 
 import click
+import simplejson as json
 
 from click_default_group import DefaultGroup
 from redminelib import Redmine
@@ -51,7 +52,9 @@ def export_issues(output, query_string):
     click.echo("{:d} issue{} found!"
                .format(len(issues), "s" if len(issues) > 1 else ""))
 
-    exporter.export(issues)
+    issues_export = exporter.export(issues)
+
+    output.write(json.dumps(issues_export, indent=4, sort_keys=True))
 
     click.echo("Issues exported in '{}'!".format(output.name))
     click.echo()

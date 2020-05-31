@@ -182,6 +182,7 @@ class IssuesExporter(object):
         groups references can only be found in the "assignee" field.
 
         :param issues: Issues to export
+        :return: Issues export dictionary
         """
         issues_export = dict()
         self._resource_value_mappings = dict()
@@ -235,6 +236,8 @@ class IssuesExporter(object):
             # TODO Save sub-tasks
 
             # TODO Save relations
+
+        return issues_export
 
     def _save_project(self, project, issues_export):
         """

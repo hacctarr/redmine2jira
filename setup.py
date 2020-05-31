@@ -23,6 +23,7 @@ requirements = [
     'Pillow>=5.0',
     'python-redmine==2.2.1',
     'regex>=2018.2',
+    'simplejson>=3.17.0'
     'six>=1.11',
     'tabulate>=0.8',
     'textile>=3.0',
