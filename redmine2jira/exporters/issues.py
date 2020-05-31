@@ -45,6 +45,7 @@ from redmine2jira.utils.text import text2confluence_wiki
 MISSING_RESOURCE_MAPPINGS_MESSAGE = "Resource value mappings definition"
 MISSING_RESOURCE_MAPPING_PROMPT_SUFFIX = " -> "
 
+redmine = Redmine(config.REDMINE_URL, key=config.REDMINE_API_KEY)
 
 class IssuesExporter(object):
     """
@@ -55,8 +56,6 @@ class IssuesExporter(object):
     def __init__(self, check_config=False):
         if check_config:
             IssuesExporter._validate_config()
-
-        redmine = Redmine(config.REDMINE_URL, key=config.REDMINE_API_KEY)
 
         # Get all Redmine users, groups, projects, trackers, issue statuses,
         # issue priorities, issue custom fields and store them by ID
@@ -240,7 +239,7 @@ class IssuesExporter(object):
             self._save_watchers(issue.watchers, issue_export)
             self._save_attachments(issue.attachments, issue_export)
             self._save_journals(issue, issue_export)
-            self._save_time_entries(issue.time_entries)
+            self._save_time_entries(issue.time_entries, issue_export)
 
             # TODO Save sub-tasks
 
@@ -336,8 +335,8 @@ class IssuesExporter(object):
             if hasattr(self, '_users'):
                 if hasattr(author, 'id'):
                     if self._users.get(author.id, None) != None:
-        issue_export['reporter'] = \
-            self._get_author_mapping(self._users[author.id])
+                        issue_export['reporter'] = \
+                            self._get_author_mapping(self._users[author.id])
 
     def _get_author_mapping(self, author):
         """
@@ -586,14 +585,19 @@ class IssuesExporter(object):
             value = self._get_custom_field_value_mapping(custom_field,
                                                          project_id)
 
-            custom_field_dict = {
-                'fieldName': field_name,
-                'fieldType': field_type,
-                'value': value
-            }
+            if custom_field.name == 'Sub-Priority':
+                issue_export['customfield_10058'] = value
+            elif custom_field.name == 'OTRS Ticket':
+                issue_export['customfield_10061'] = value
+            else:
+                custom_field_dict = {
+                    'fieldName': field_name,
+                    'fieldType': field_type,
+                    'value': value
+                }
 
-            issue_export.setdefault('customFieldValues', []) \
-                        .append(custom_field_dict)
+                issue_export.setdefault('customFieldValues', []) \
+                            .append(custom_field_dict)
 
     def _get_custom_field_mapping(self, custom_field):
         """
@@ -702,8 +706,8 @@ class IssuesExporter(object):
         for attachment in attachments:
             attacher = None
             if self._users.get(attachment.author.id, None) != None:
-            attacher = self._get_resource_mapping(
-                self._users[attachment.author.id])
+                attacher = self._get_resource_mapping(
+                    self._users[attachment.author.id])
 
             attachment_dict = {
                 "name": attachment.filename,
@@ -785,7 +789,7 @@ class IssuesExporter(object):
         """
         author = None
         if self._users.get(journal.user.id, None) != None:
-        author = self._get_resource_mapping(self._users[journal.user.id])
+            author = self._get_resource_mapping(self._users[journal.user.id])
 
         comment_body = journal.notes
 
@@ -1190,9 +1194,9 @@ class IssuesExporter(object):
                                       if event['created'] == created))
                     except StopIteration:
                         author = None
-                        if getattr(journal, 'user', None):
-                        author = self._get_resource_mapping(
-                            self._users[journal['user'].id])
+                        if journal.get('user', None):
+                            author = self._get_resource_mapping(
+                                self._users[journal['user'].id])
 
                         event = {
                             'author': author,
@@ -1259,8 +1263,8 @@ class IssuesExporter(object):
                                         redmine_field[:-len('_id')])
             jira_field_def = ISSUE_FIELD_MAPPINGS.get((redmine_field_def,
                                                    resource_type_mapping), 'unknown')
-            jira_internal_value = resource_value_mapping[0]
-            jira_string_value = resource_value_mapping[1]
+            jira_internal_value = resource_value_mapping
+            jira_string_value = resource_value_mapping
             jira_internal_value = str(jira_internal_value)
         # ...else if it's a Redmine standard field...
         else:
@@ -1347,20 +1351,23 @@ class IssuesExporter(object):
 
         return field, internal_value, string_value
 
-    @staticmethod
-    def _save_time_entries(time_entries):
+    def _save_time_entries(self, time_entries, issue_export):
         """
         Save issue time entries to export dictionary.
 
         :param time_entries: Issue time entries
         """
-        for time_entry in time_entries:
-            # TODO Set value in the export dictionary
-            click.echo("Time entry: {}".format(time_entry))
+        timeSpent = 0.0
+        for time_entry_id in time_entries:
+            # Retrieve time_entry data
+            time_entry = redmine.time_entry.get(time_entry_id)
 
-            # TODO Add time spent to issue total time spent
+            # Add time spent to issue total time spent
+            timeSpent += time_entry.hours
 
-        # TODO Save issue total time spent
+        # Save issue total time spent
+        issue_export['timeSpent'] = \
+            self._get_estimated_hours_mapping(timeSpent)
 
     def _get_resource_mapping(self, resource, resource_type=None,
                               project_id=None, include_type_mapping=False,
