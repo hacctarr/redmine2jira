@@ -53,7 +53,7 @@ def export_issues(output, query_string):
                .format(len(issues), "s" if len(issues) > 1 else ""))
 
     issues_export = exporter.export(issues)
-
+    
     output.write(json.dumps(issues_export, indent=4, sort_keys=True))
 
     click.echo("Issues exported in '{}'!".format(output.name))
@@ -309,3 +309,18 @@ def _list_resources(resource_set, sort_key,
     # Pretty print the resource table
     # using the dictionary keys as headers
     click.echo(tabulate(resource_table, headers="keys"))
+
+    jira_table = list()
+    for item in resource_table:
+        jira = dict()
+        jira["fullname"] = " ".join([item["firstname"], item["lastname"]])
+        jira["email"] = item["mail"]
+        jira["name"] = item["login"]
+        jira["active"] = False
+        jira_table.append(jira)
+    try:
+        with open('redmine_users.json', 'w') as json_file:
+            json_file.write(json.dumps(jira_table, indent=4))
+        print "Wrote redmine_users.json"
+    except IOError as e:
+        print "Error writing redmine_users.json", e
