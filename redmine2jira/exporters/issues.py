@@ -17,6 +17,7 @@ from itertools import chain
 from operator import itemgetter
 
 import click
+import simplejson as json
 
 from click.exceptions import ClickException, UsageError
 from inflection import humanize, underscore
@@ -185,7 +186,15 @@ class IssuesExporter(object):
         :return: Issues export dictionary
         """
         issues_export = dict()
-        self._resource_value_mappings = dict()
+        try:
+            with open('redmine2jira_config.json', "r") as json_file:
+                data = json.load(json_file)
+            print "Loaded redmine2jira_config.json"
+        except IOError:
+            data = dict()
+            print "Could not find redmine2jira_config.json"
+
+        self._resource_value_mappings = data
 
         for issue in issues:
             # The issue project must be saved before everything else.
@@ -237,7 +246,16 @@ class IssuesExporter(object):
 
             # TODO Save relations
 
+        self._save_config()
+
         return issues_export
+
+    def _save_config(self):
+        try:
+            with open('redmine2jira_config.json', 'w') as json_file:
+                json_file.write(json.dumps(self._resource_value_mappings, indent=4, sort_keys=True))
+        except IOError as e:
+            print "Error writing redmine2jira_config.json", e
 
     def _save_project(self, project, issues_export):
         """
@@ -1454,13 +1472,13 @@ class IssuesExporter(object):
                 if project_id is None:
                     jira_resource_value = \
                         self._resource_value_mappings.get(
-                            (redmine_resource_value, resource_type_mapping),
+                            ','.join([redmine_resource_value, str(resource_type_mapping.redmine)]),
                             None)
                 else:
                     jira_resource_value = \
                         self._resource_value_mappings.get(
-                            (project_id,
-                             redmine_resource_value, resource_type_mapping),
+                            ','.join([str(project_id),
+                             redmine_resource_value, str(resource_type_mapping.redmine)]),
                             None)
 
                 if jira_resource_value is not None:
@@ -1548,13 +1566,15 @@ class IssuesExporter(object):
 
             if project_id is None:
                 self._resource_value_mappings[
-                    (redmine_resource_value,
-                     resource_type_mapping)] = jira_resource_value
+                    ','.join([redmine_resource_value,
+                     str(resource_type_mapping.redmine)])] = jira_resource_value
             else:
                 self._resource_value_mappings[
-                    (project_id,
+                    ','.join([str(project_id),
                      redmine_resource_value,
-                     resource_type_mapping)] = jira_resource_value
+                     str(resource_type_mapping.redmine)])] = jira_resource_value
+
+            self._save_config()
 
         if config.EXPORT_ISSUE_JOURNALS and not include_internal_id:
             jira_resource_value = jira_resource_value[1]
