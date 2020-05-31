@@ -332,6 +332,10 @@ class IssuesExporter(object):
         :param author: Issue author
         :param issue_export: Single issue export dictionary
         """
+        if hasattr(self, '_get_author_mapping'):
+            if hasattr(self, '_users'):
+                if hasattr(author, 'id'):
+                    if self._users.get(author.id, None) != None:
         issue_export['reporter'] = \
             self._get_author_mapping(self._users[author.id])
 
@@ -696,6 +700,8 @@ class IssuesExporter(object):
         :param issue_export: Single issue export dictionary
         """
         for attachment in attachments:
+            attacher = None
+            if self._users.get(attachment.author.id, None) != None:
             attacher = self._get_resource_mapping(
                 self._users[attachment.author.id])
 
@@ -704,7 +710,7 @@ class IssuesExporter(object):
                 "attacher": attacher,
                 "created": attachment.created_on.isoformat(),
                 "uri": attachment.content_url,
-                "description": attachment.description
+                "description": getattr(attachment, 'description', None)
             }
 
             issue_export.setdefault('attachments', []) \
@@ -777,6 +783,8 @@ class IssuesExporter(object):
         :param journal: Issue journal item
         :param issue_export: Single issue export dictionary
         """
+        author = None
+        if self._users.get(journal.user.id, None) != None:
         author = self._get_resource_mapping(self._users[journal.user.id])
 
         comment_body = journal.notes
@@ -929,7 +937,7 @@ class IssuesExporter(object):
                             identifying_field = \
                                 field.related_resource.get_identifying_field()
                             current_string_value = getattr(current_value,
-                                                           identifying_field)
+                                                           identifying_field, None)
                         else:
                             field_name = property_name
                             current_value = getattr(issue, field_name, None)
@@ -1181,6 +1189,8 @@ class IssuesExporter(object):
                         event = next((event for event in history
                                       if event['created'] == created))
                     except StopIteration:
+                        author = None
+                        if getattr(journal, 'user', None):
                         author = self._get_resource_mapping(
                             self._users[journal['user'].id])
 
@@ -1247,14 +1257,15 @@ class IssuesExporter(object):
 
             redmine_field_def = getattr(models.RedmineIssue,
                                         redmine_field[:-len('_id')])
-            jira_field_def = ISSUE_FIELD_MAPPINGS[(redmine_field_def,
-                                                   resource_type_mapping)]
-            jira_internal_value, jira_string_value = resource_value_mapping
+            jira_field_def = ISSUE_FIELD_MAPPINGS.get((redmine_field_def,
+                                                   resource_type_mapping), 'unknown')
+            jira_internal_value = resource_value_mapping[0]
+            jira_string_value = resource_value_mapping[1]
             jira_internal_value = str(jira_internal_value)
         # ...else if it's a Redmine standard field...
         else:
-            redmine_field_def = getattr(models.RedmineIssue, redmine_field)
-            jira_field_def = ISSUE_FIELD_MAPPINGS[redmine_field_def]
+            redmine_field_def = getattr(models.RedmineIssue, redmine_field, None)
+            jira_field_def = ISSUE_FIELD_MAPPINGS.get(redmine_field_def, None)
             jira_string_value = None
 
             if redmine_field == 'subject':
@@ -1270,12 +1281,13 @@ class IssuesExporter(object):
             elif redmine_field == 'estimated_hours':
                 jira_internal_value = str(int(float(redmine_value)) * 3600)
             else:
-                raise NotImplementedError(
-                    "The field '{}' in a journal detail is not supported!"
-                    .format(redmine_field))
+                return None, None, None
+                # raise NotImplementedError(
+                #     "The field '{}' in a journal detail is not supported!"
+                #     .format(redmine_field))
 
         if jira_field_def is not None:
-            jira_field = jira_field_def.key
+            jira_field = getattr(jira_field_def, 'key', None)
 
             return jira_field, jira_internal_value, jira_string_value
         else:
