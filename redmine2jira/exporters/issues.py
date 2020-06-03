@@ -47,6 +47,7 @@ MISSING_RESOURCE_MAPPING_PROMPT_SUFFIX = " -> "
 
 redmine = Redmine(config.REDMINE_URL, key=config.REDMINE_API_KEY)
 
+
 class IssuesExporter(object):
     """
     Export a Redmine issues ResourceSet to a JSON file
@@ -188,10 +189,10 @@ class IssuesExporter(object):
         try:
             with open('redmine2jira_config.json', "r") as json_file:
                 data = json.load(json_file)
-            print "Loaded redmine2jira_config.json"
+            print("Loaded redmine2jira_config.json")
         except IOError:
             data = dict()
-            print "Could not find redmine2jira_config.json"
+            print("Could not find redmine2jira_config.json")
 
         self._resource_value_mappings = data
 
@@ -253,9 +254,10 @@ class IssuesExporter(object):
     def _save_config(self):
         try:
             with open('redmine2jira_config.json', 'w') as json_file:
-                json_file.write(json.dumps(self._resource_value_mappings, indent=4, sort_keys=True))
+                json_file.write(json.dumps(
+                    self._resource_value_mappings, indent=4, sort_keys=True))
         except IOError as e:
-            print "Error writing redmine2jira_config.json", e
+            print("Error writing redmine2jira_config.json", e)
 
     def _save_project(self, project, issues_export):
         """
@@ -332,12 +334,12 @@ class IssuesExporter(object):
         :param author: Issue author
         :param issue_export: Single issue export dictionary
         """
-        if hasattr(self, '_get_author_mapping'):
-            if hasattr(self, '_users'):
                 if hasattr(author, 'id'):
-                    if self._users.get(author.id, None) != None:
+            if self._users.get(author.id, None):
                         issue_export['reporter'] = \
                             self._get_author_mapping(self._users[author.id])
+        else:
+            print('Author not found:', author)
 
     def _get_author_mapping(self, author):
         """
@@ -586,11 +588,6 @@ class IssuesExporter(object):
             value = self._get_custom_field_value_mapping(custom_field,
                                                          project_id)
 
-            if custom_field.name == 'Sub-Priority':
-                issue_export['customfield_10058'] = value
-            elif custom_field.name == 'OTRS Ticket':
-                issue_export['customfield_10061'] = value
-            else:
                 custom_field_dict = {
                     'fieldName': field_name,
                     'fieldType': field_type,
@@ -635,8 +632,8 @@ class IssuesExporter(object):
             elif custom_field_def.field_format == 'date':
                 try:
                 jira_value = redmine_value.isoformat()
-                except:
-                    print 'Unexpected unicode in date:', redmine_value
+                except AttributeError:
+                    print('Unexpected unicode in date:', redmine_value)
                     jira_value = redmine_value
             elif custom_field_def.field_format == 'float':
                 jira_value = float(redmine_value)
@@ -710,7 +707,7 @@ class IssuesExporter(object):
         """
         for attachment in attachments:
             attacher = None
-            if self._users.get(attachment.author.id, None) != None:
+            if self._users.get(attachment.author.id, None):
                 attacher = self._get_resource_mapping(
                     self._users[attachment.author.id])
 
@@ -740,7 +737,7 @@ class IssuesExporter(object):
             elif relation.relation_type == 'copied_to':
                 name = 'clones'
             else:
-                print relation.relation_type
+                print(relation.relation_type)
 
             relation_dict = {
                 "name": name,
@@ -822,7 +819,7 @@ class IssuesExporter(object):
         if self._users.get(journal.user.id, None):
             author = self._get_resource_mapping(self._users[journal.user.id])
         else:
-            print 'User not found:', journal.user
+            print('User not found:', journal.user)
 
         comment_body = journal.notes
 
@@ -973,8 +970,8 @@ class IssuesExporter(object):
                             field = getattr(models.RedmineIssue, field_name)
                             identifying_field = \
                                 field.related_resource.get_identifying_field()
-                            current_string_value = getattr(current_value,
-                                                           identifying_field, None)
+                            current_string_value = getattr(
+                                current_value, identifying_field, None)
                         else:
                             field_name = property_name
                             current_value = getattr(issue, field_name, None)
@@ -1227,12 +1224,11 @@ class IssuesExporter(object):
                                       if event['created'] == created))
                     except StopIteration:
                         author = None
-                        if journal.get('user', None):
                             if self._users.get(journal['user'].id, None):
                             author = self._get_resource_mapping(
                                 self._users[journal['user'].id])
                             else:                                
-                                print 'User not found:', journal['user']
+                            print('User not found:', journal['user'])
 
                         event = {
                             'author': author,
@@ -1297,14 +1293,15 @@ class IssuesExporter(object):
 
             redmine_field_def = getattr(models.RedmineIssue,
                                         redmine_field[:-len('_id')])
-            jira_field_def = ISSUE_FIELD_MAPPINGS.get((redmine_field_def,
-                                                   resource_type_mapping), 'unknown')
+            jira_field_def = ISSUE_FIELD_MAPPINGS.get(
+                (redmine_field_def, resource_type_mapping), 'unknown')
             jira_internal_value = resource_value_mapping
             jira_string_value = resource_value_mapping
             jira_internal_value = str(jira_internal_value)
         # ...else if it's a Redmine standard field...
         else:
-            redmine_field_def = getattr(models.RedmineIssue, redmine_field, None)
+            redmine_field_def = getattr(
+                models.RedmineIssue, redmine_field, None)
             jira_field_def = ISSUE_FIELD_MAPPINGS.get(redmine_field_def, None)
             jira_string_value = None
 
@@ -1527,13 +1524,15 @@ class IssuesExporter(object):
                 if project_id is None:
                     jira_resource_value = \
                         self._resource_value_mappings.get(
-                            ','.join([redmine_resource_value, str(resource_type_mapping.redmine)]),
+                            ','.join([redmine_resource_value,
+                                     str(resource_type_mapping.redmine)]),
                             None)
                 else:
                     jira_resource_value = \
                         self._resource_value_mappings.get(
                             ','.join([str(project_id),
-                             redmine_resource_value, str(resource_type_mapping.redmine)]),
+                                     redmine_resource_value,
+                                     str(resource_type_mapping.redmine)]),
                             None)
 
                 if jira_resource_value is not None:
@@ -1622,12 +1621,14 @@ class IssuesExporter(object):
             if project_id is None:
                 self._resource_value_mappings[
                     ','.join([redmine_resource_value,
-                     str(resource_type_mapping.redmine)])] = jira_resource_value
+                             str(resource_type_mapping.redmine)]
+                             )] = jira_resource_value
             else:
                 self._resource_value_mappings[
                     ','.join([str(project_id),
                      redmine_resource_value,
-                     str(resource_type_mapping.redmine)])] = jira_resource_value
+                             str(resource_type_mapping.redmine)]
+                             )] = jira_resource_value
 
             self._save_config()
 
