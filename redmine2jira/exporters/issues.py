@@ -819,8 +819,10 @@ class IssuesExporter(object):
         :param issue_export: Single issue export dictionary
         """
         author = None
-        if self._users.get(journal.user.id, None) != None:
+        if self._users.get(journal.user.id, None):
             author = self._get_resource_mapping(self._users[journal.user.id])
+        else:
+            print 'User not found:', journal.user
 
         comment_body = journal.notes
 
