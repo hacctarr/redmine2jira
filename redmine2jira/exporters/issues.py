@@ -243,7 +243,8 @@ class IssuesExporter(object):
 
             # TODO Save sub-tasks
 
-            # TODO Save relations
+            # Save relations
+            self._save_relations(issue.relations, issues_export)
 
         self._save_config()
 
@@ -632,7 +633,11 @@ class IssuesExporter(object):
                 elif redmine_value == '0':
                     jira_value = 'No'
             elif custom_field_def.field_format == 'date':
+                try:
                 jira_value = redmine_value.isoformat()
+                except:
+                    print 'Unexpected unicode in date:', redmine_value
+                    jira_value = redmine_value
             elif custom_field_def.field_format == 'float':
                 jira_value = float(redmine_value)
             elif custom_field_def.field_format == 'int':
@@ -719,6 +724,32 @@ class IssuesExporter(object):
 
             issue_export.setdefault('attachments', []) \
                         .append(attachment_dict)
+
+    def _save_relations(self, relations, issues_export):
+        """
+        Save issue attachments to export dictionary.
+
+        :param relations: Issue relations
+        :param issues_export: Main dictionary
+        """
+        for relation in relations:
+            name = relation.relation_type
+
+            if relation.relation_type == 'relates':
+                name = 'relates to'
+            elif relation.relation_type == 'copied_to':
+                name = 'clones'
+            else:
+                print relation.relation_type
+
+            relation_dict = {
+                "name": name,
+                "sourceId": relation.issue_id,
+                "destinationId": relation.issue_to_id
+            }
+
+            issues_export.setdefault('links', []) \
+                        .append(relation_dict)
 
     def _save_journals(self, issue, issue_export):
         """
@@ -1195,8 +1226,11 @@ class IssuesExporter(object):
                     except StopIteration:
                         author = None
                         if journal.get('user', None):
+                            if self._users.get(journal['user'].id, None):
                             author = self._get_resource_mapping(
                                 self._users[journal['user'].id])
+                            else:                                
+                                print 'User not found:', journal['user']
 
                         event = {
                             'author': author,

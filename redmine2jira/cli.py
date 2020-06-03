@@ -57,9 +57,6 @@ def export_issues(output, query_string):
     output.write(json.dumps(issues_export, indent=4, sort_keys=True))
 
     click.echo("Issues exported in '{}'!".format(output.name))
-    click.echo()
-    click.echo()
-    click.echo("Good Bye!")
 
 
 def _get_issues_by_filter(query_string):
